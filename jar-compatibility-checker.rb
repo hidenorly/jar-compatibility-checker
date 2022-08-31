@@ -22,6 +22,36 @@ require 'optparse'
 require "fileutils"
 require 'shellwords'
 
+class AnalyzeUtil
+	def self.getListOfFilenameAndPath(paths)
+		result = {}
+
+		paths.each do |aPath|
+			result[ FileUtil.getFilenameFromPath(aPath) ] = aPath
+		end
+
+		return result
+	end
+
+	def self.getAnalysisMissingNew(old_files, new_files)
+		missingFiles = []
+		newFiles = []
+		commonFiles = []
+		new_files.each do |k,v|
+			if !old_files.has_key?(k)
+				newFiles << k
+			else
+				commonFiles << {:targetFile=>k, :oldPath=>old_files[k], :newPath=>v}
+			end
+		end
+
+		old_files.each do |k,v|
+			missingFiles << k if !new_files.has_key?(k)
+		end
+
+		return commonFiles, missingFiles, newFiles
+	end
+end
 
 class AndroidUtil
 	DEF_DEX2JAR = ENV["PATH_DEX2JAR"] ? ENV["PATH_DEX2JAR"] : "d2j-dex2jar.sh"
@@ -66,6 +96,7 @@ class AndroidUtil
 end
 
 
+
 class APICheckExecutor < TaskAsync
 	def initialize(jarName, oldPath, newPath, oldImage, newImage, options, resultCallback)
 		super("APICheckExecutor #{jarName}")
@@ -79,6 +110,37 @@ class APICheckExecutor < TaskAsync
 		@outputDirectory = options[:outputDirectory]
 		@reportBase = options[:reportBase]
 		@resultCallback = resultCallback
+	end
+
+	SZ_BIN_COMPAT 	= "Binary compatibility: "
+	SZ_SRC_COMPAT 	= "Source compatibility: "
+	SZ_BIN_COMPAT2	= "Total binary compatibility problems: "
+	SZ_SRC_COMPAT2	= "Total source compatibility problems: "
+	SZ_WARNINGS		= ", warnings: "
+
+	def parseResult(result, aLine)
+		if aLine.start_with?(SZ_BIN_COMPAT) then
+			result[:binCompatibility] = aLine.slice(SZ_BIN_COMPAT.length, aLine.length-SZ_BIN_COMPAT.length-1).to_i
+
+		elsif aLine.start_with?(SZ_SRC_COMPAT) then
+			result[:srcCompatibility] = aLine.slice(SZ_SRC_COMPAT.length, aLine.length-SZ_SRC_COMPAT.length-1).to_i
+
+		elsif aLine.start_with?(SZ_BIN_COMPAT2) then
+			pos = aLine.index(",", SZ_BIN_COMPAT2.length)
+			pos2 = aLine.index(SZ_WARNINGS, SZ_BIN_COMPAT2.length)
+			if pos && pos2 then
+				result[:binProblem] = aLine.slice(SZ_BIN_COMPAT2.length, aLine.length-pos).to_i
+				result[:binWarning] = aLine.slice(pos2, aLine.length-pos2).to_i
+			end
+
+		elsif aLine.start_with?(SZ_SRC_COMPAT2) then
+			pos = aLine.index(",", SZ_SRC_COMPAT2.length)
+			pos2 = aLine.index(SZ_WARNINGS, SZ_SRC_COMPAT2.length)
+			if pos && pos2 then
+				result[:srcProblem] = aLine.slice(SZ_SRC_COMPAT2.length, aLine.length-pos).to_i
+				result[:srcWarning] = aLine.slice(pos2, aLine.length-pos2).to_i
+			end
+		end
 	end
 
 	def _getTempPath(jarPath, prefixDir)
