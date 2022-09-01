@@ -93,8 +93,38 @@ class AndroidUtil
 		exec_cmd = "zip -r -o -q #{Shellwords.escape(outputArchivePath)} *"
 		ExecUtil.execCmd(exec_cmd, tmpPath)
 	end
-end
 
+	DEF_DEPLOY_BASE_PATH = [
+		"system/",
+		"system_ext/",
+		"product/",
+		"oem/",
+		"vendor/",
+		"odm/",
+		"apex/"
+	]
+
+	def self.isTargetAndroidBuiltOut(jarPath)
+		result = false
+
+		DEF_DEPLOY_BASE_PATH.each do | aDeployBasePath |
+			result = jarPath.include?( aDeployBasePath )
+			break if result
+		end
+
+		return result
+	end
+
+	def self.getListOfAndroidBuiltOutOnly(jarPaths)
+		result = {}
+
+		jarPaths.to_h.each do |jarName, aPath|
+			result[ FileUtil.getFilenameFromPath(aPath) ] = aPath if isTargetAndroidBuiltOut(aPath)
+		end
+
+		return result
+	end
+end
 
 
 class APICheckExecutor < TaskAsync
@@ -352,6 +382,7 @@ end
 #---- main --------------------------
 options = {
 	:verbose => false,
+	:androidBuiltOutMode => false,
 	:outputDirectory => ".",
 	:reportBase => nil,
 	:outputSections => "missing|new|problem|compatible",
@@ -369,6 +400,10 @@ opt_parser = OptionParser.new do |opts|
 	opts.on("-j", "--numOfThreads=", "Specify number of threads (default:#{options[:numOfThreads]})") do |numOfThreads|
 		options[:numOfThreads] = numOfThreads.to_i
 		options[:numOfThreads] = 1 if !options[:numOfThreads]
+	end
+
+	opts.on("-a", "--androidBuiltOutMode", "Specify if run as Android Built Out mode (default:#{options[:androidBuiltOutMode]})") do
+		options[:androidBuiltOutMode] = true
 	end
 
 	opts.on("-o", "--outputDir=", "Specify compat_reports output directory (default:#{options[:outputDirectory]})") do |outputDirectory|
@@ -427,6 +462,11 @@ new_file_dir = FileUtil.getFilenameFromPath2(ARGV[1],2)
 
 old_files = AnalyzeUtil.getListOfFilenameAndPath( FileUtil.getRegExpFilteredFiles(ARGV[0], "\.jar$") )
 new_files = AnalyzeUtil.getListOfFilenameAndPath( FileUtil.getRegExpFilteredFiles(ARGV[1], "\.jar$") )
+
+if options[:androidBuiltOutMode] then
+	old_files = AndroidUtil.getListOfAndroidBuiltOutOnly( old_files )
+	new_files = AndroidUtil.getListOfAndroidBuiltOutOnly( new_files )
+end
 
 commonFiles, missingFiles, newFiles = AnalyzeUtil.getAnalysisMissingNew(old_files, new_files)
 
