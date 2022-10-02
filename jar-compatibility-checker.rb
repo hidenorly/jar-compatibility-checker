@@ -285,29 +285,6 @@ class Reporter
 	end
 end
 
-class Reporter
-	def self.titleOut(title)
-		puts title
-	end
-
-	def self.report(data)
-		if data.length then
-			keys = data[0]
-			if keys.kind_of?(Hash) then
-				_conv(keys, true, false, true)
-			end
-
-			data.each do |aData|
-				_conv(aData)
-			end
-		end
-	end
-
-	def self._conv(aData, keyOutput=false, valOutput=true, firstLine=false)
-		puts aData
-	end
-end
-
 class MarkdownReporter < Reporter
 	def self.titleOut(title)
 		puts "\# #{title}"
