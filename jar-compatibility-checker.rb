@@ -22,6 +22,18 @@ require 'optparse'
 require "fileutils"
 require 'shellwords'
 
+class FileUtil
+	def self.getFilenameFromPath2(path,nPos=2)
+		pos=path.length
+		for i in 1..nPos do
+			pos = path.rindex("/", pos)
+			pos = pos.to_i-1 if pos
+		end
+		result = pos ? path.slice(pos+2,path.length-pos) : path
+		return result.to_s.sub("/","-")
+	end
+end
+
 class AnalyzeUtil
 	def self.getListOfFilenameAndPath(paths)
 		result = {}
@@ -433,6 +445,8 @@ else
 		end
 	end
 end
+
+FileUtil.ensureDirectory( options[:outputDirectory] )
 
 old_file_dir = FileUtil.getFilenameFromPath2(ARGV[0],2)
 new_file_dir = FileUtil.getFilenameFromPath2(ARGV[1],2)
